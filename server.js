@@ -2,14 +2,20 @@ const express = require('express');
 const server = express();
 const jwt = require('jsonwebtoken');
 const jwtSecret = 'Mysecretoussecretofthehidden';
-const bodyParser = require('body-parser');
-const credentials = {
-    user: 'rainier',
-    password: '12345678'
-};
-const payload = {
-    nombre: "Rainier"
-}
+const usersList = [
+    {
+        user: 'rainier',
+        password: '123456',
+        email: 'Rainier@gmail.com',
+        admin: true
+    },
+    {
+        user: 'jose',
+        password: 'password',
+        email: 'jose@gmail.com',
+        admin: false
+    }
+];
 
 server.listen(3000,function(){
     console.log("Servidor iniciado");
@@ -18,10 +24,15 @@ server.listen(3000,function(){
 server.use(express.json());
 
 function validateCredentials(user, password){
-    console.log(user, password);
-    if(user === credentials.user && password === credentials.password)
-    {
-        return true;
+    let index = usersList.findIndex(function(userData){
+        return userData.user == user;
+    });
+
+    if(index!=-1){
+        if(user === usersList[index].user && password === usersList[index].password)
+        {
+            return true;
+        }
     }
     return false;
 }
@@ -31,7 +42,7 @@ function JWTMiddleware(req,res,next){
         const token = req.headers.authorization.split(' ')[1];
         const verifyToken = jwt.verify(token,jwtSecret);
         if(verifyToken){
-            req.nombre = verifyToken;
+            req.userData = verifyToken;
             return next();
         }
     } catch (e) {
@@ -46,13 +57,33 @@ server.post('/login',function(req,res){
         res.statusCode
     }
     else{
+        let userData = usersList.filter(function(userData){
+            return userData.user == user;
+        });
         const token = {
-            token: jwt.sign(payload,jwtSecret)
+            token: jwt.sign(userData[0],jwtSecret)
         }
         res.json(token);
     }
 });
 
-server.get('/userinfo',JWTMiddleware,function(req,res){
-    res.json(req.nombre);
+server.post('/register',function(req,res){
+    let newUser = req.body.user;
+    let newEmail =  req.body.email;
+    let newPassword = req.body.password;
+    let newUserData = {
+        user: newUser,
+        email: newEmail,
+        password: newPassword,
+        admin: false
+    }
+    usersList.push(newUserData);
+    res.status(200).send("register successfull");
+});
+
+server.get('/users',JWTMiddleware,function(req,res){
+    if(req.userData.admin){
+        res.status(200).json(usersList);
+    }
+    res.status(403).send("You are not allowed to see this data");
 });
